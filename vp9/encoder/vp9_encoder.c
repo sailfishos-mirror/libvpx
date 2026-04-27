@@ -1393,7 +1393,12 @@ static void alloc_compressor_data(VP9_COMP *cpi) {
   vpx_free(cpi->tile_tok[0][0]);
 
   {
-    unsigned int tokens = get_token_alloc(cm->mb_rows, cm->mb_cols);
+    int64_t tokens = get_token_alloc(cm->mb_rows, cm->mb_cols);
+    if ((uint64_t)tokens > SIZE_MAX) {
+      vpx_internal_error(
+          &cm->error, VPX_CODEC_MEM_ERROR,
+          "Size of cpi->tile_tok[0][0] can't be represented in size_t");
+    }
     CHECK_MEM_ERROR(&cm->error, cpi->tile_tok[0][0],
                     vpx_calloc(tokens, sizeof(*cpi->tile_tok[0][0])));
   }

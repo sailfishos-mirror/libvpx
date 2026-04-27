@@ -2758,6 +2758,24 @@ TEST(EncodeAPI, SvcTestInvalidInputs) {
   ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
 }
 
+TEST(EncodeAPI, LargeDimensionsTokenAllocOverflow) {
+  vpx_codec_iface_t *const iface = vpx_codec_vp9_cx();
+  vpx_codec_enc_cfg_t cfg;
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+  cfg.g_w = 26625;
+  cfg.g_h = 26625;
+
+  vpx_codec_ctx_t codec;
+  // With overflow fixed, this large allocation should either succeed or fail
+  // gracefully with MEM_ERROR, instead of crashing or OOMing due to overflow.
+  vpx_codec_err_t err =
+      vpx_codec_enc_init_ver(&codec, iface, &cfg, 0, VPX_ENCODER_ABI_VERSION);
+  ASSERT_TRUE(err == VPX_CODEC_OK || err == VPX_CODEC_MEM_ERROR);
+  if (err == VPX_CODEC_OK) {
+    ASSERT_EQ(vpx_codec_destroy(&codec), VPX_CODEC_OK);
+  }
+}
+
 // 4 spatial layers, 1 temporal, speed 1 and 0 for spatial_layer = 0, 1,
 // with different scale factors. Reproduces bug: 505665613.
 TEST(EncodeAPI, SvcIssue505665613) {
