@@ -2632,6 +2632,51 @@ TEST(EncodeAPI, Buganizer488585490CostTableOverflow) {
 
   ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
 }
+
+void TestEncoderImageMismatch(bool use_highbitdepth) {
+  vpx_codec_iface_t *const iface = vpx_codec_vp9_cx();
+  vpx_codec_ctx_t enc;
+  vpx_codec_enc_cfg_t cfg;
+
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+
+  cfg.g_w = 180;
+  cfg.g_h = 68;
+  cfg.g_lag_in_frames = 0;
+
+  vpx_img_fmt_t img_fmt;
+  long flags = 0;
+
+  if (use_highbitdepth) {
+    cfg.g_profile = 2;
+    cfg.g_bit_depth = VPX_BITS_10;
+    flags = VPX_CODEC_USE_HIGHBITDEPTH;
+    img_fmt = VPX_IMG_FMT_I420;
+  } else {
+    cfg.g_profile = 0;
+    flags = 0;
+    img_fmt = VPX_IMG_FMT_I42016;
+  }
+
+  ASSERT_EQ(vpx_codec_enc_init(&enc, iface, &cfg, flags), VPX_CODEC_OK);
+
+  vpx_image_t *img = vpx_img_alloc(NULL, img_fmt, cfg.g_w, cfg.g_h, 1);
+  ASSERT_NE(img, nullptr);
+
+  ASSERT_EQ(vpx_codec_encode(&enc, img, 0, 1, 0, VPX_DL_REALTIME),
+            VPX_CODEC_INVALID_PARAM);
+
+  vpx_img_free(img);
+  ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
+}
+
+TEST(EncodeAPI, HighbdEncoderI420ImageMismatch) {
+  TestEncoderImageMismatch(true);
+}
+
+TEST(EncodeAPI, NonHighbdEncoderI42016ImageMismatch) {
+  TestEncoderImageMismatch(false);
+}
 #endif
 
 TEST(EncodeAPI, SvcTestInvalidInputs) {
