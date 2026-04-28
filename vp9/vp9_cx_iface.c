@@ -10,6 +10,7 @@
 
 #include <assert.h>
 #include <limits.h>
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -314,7 +315,7 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t *ctx,
 
     if (cfg->ss_number_layers > 1 || cfg->ts_number_layers > 1) {
       int i;
-      unsigned int n_packets_per_layer[VPX_SS_MAX_LAYERS] = { 0 };
+      int n_packets_per_layer[VPX_SS_MAX_LAYERS] = { 0 };
 
       stats = cfg->rc_twopass_stats_in.buf;
       for (i = 0; i < n_packets; ++i) {
@@ -336,9 +337,11 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t *ctx,
                 n_packets - cfg->ss_number_layers + i;
         layer_id = (int)stats->spatial_layer_id;
 
+        const double count_rounded = stats->count + 0.5;
         if (layer_id >= cfg->ss_number_layers ||
-            (unsigned int)(stats->count + 0.5) !=
-                n_packets_per_layer[layer_id] - 1)
+            !isfinite((float)stats->count) || stats->count < 0.0 ||
+            count_rounded > (double)INT_MAX ||
+            (int)count_rounded != n_packets_per_layer[layer_id] - 1)
           ERROR("rc_twopass_stats_in missing EOS stats packet");
       }
     } else {
@@ -348,7 +351,10 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t *ctx,
       stats =
           (const FIRSTPASS_STATS *)cfg->rc_twopass_stats_in.buf + n_packets - 1;
 
-      if ((int)(stats->count + 0.5) != n_packets - 1)
+      const double count_rounded = stats->count + 0.5;
+      if (!isfinite((float)stats->count) || stats->count < 0.0 ||
+          count_rounded > (double)INT_MAX ||
+          (int)count_rounded != n_packets - 1)
         ERROR("rc_twopass_stats_in missing EOS stats packet");
     }
   }

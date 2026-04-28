@@ -9,6 +9,7 @@
  */
 
 #include <array>
+#include <cmath>
 #include <cassert>
 #include <climits>
 #include <cstdint>
@@ -30,6 +31,10 @@
 #include "vpx/vpx_codec.h"
 #include "vpx/vpx_encoder.h"
 #include "vpx/vpx_image.h"
+
+#if CONFIG_VP9_ENCODER
+#include "vp9/encoder/vp9_firstpass_stats.h"
+#endif
 
 namespace {
 
@@ -2869,6 +2874,33 @@ TEST(EncodeAPI, Vp9TargetLevelTinyResolution) {
   EXPECT_EQ(vpx_codec_destroy(&codec), VPX_CODEC_OK);
 }
 
+#endif  // CONFIG_VP9_ENCODER
+
+#if CONFIG_VP9_ENCODER
+void VerifyVp9UnsafeCastEosCount(double count_value) {
+  vpx_codec_iface_t *const iface = vpx_codec_vp9_cx();
+  vpx_codec_enc_cfg_t cfg;
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+  cfg.g_pass = VPX_RC_LAST_PASS;
+
+  // Two packets required: one frame packet + one EOS packet.
+  FIRSTPASS_STATS packets[2] = {};
+  packets[1].count = count_value;
+
+  cfg.rc_twopass_stats_in.buf = packets;
+  cfg.rc_twopass_stats_in.sz = sizeof(packets);
+
+  vpx_codec_ctx_t codec;
+  // This should return VPX_CODEC_INVALID_PARAM instead of triggering UB.
+  EXPECT_EQ(vpx_codec_enc_init(&codec, iface, &cfg, 0),
+            VPX_CODEC_INVALID_PARAM);
+}
+
+TEST(EncodeAPI, Vp9UnsafeCastEosCount) { VerifyVp9UnsafeCastEosCount(1e300); }
+
+TEST(EncodeAPI, Vp9UnsafeCastEosCountNaN) { VerifyVp9UnsafeCastEosCount(NAN); }
+
+TEST(EncodeAPI, Vp9UnsafeCastEosCountZero) { VerifyVp9UnsafeCastEosCount(0.0); }
 #endif  // CONFIG_VP9_ENCODER
 
 }  // namespace
