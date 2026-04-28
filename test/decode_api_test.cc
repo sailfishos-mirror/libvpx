@@ -79,6 +79,17 @@ TEST(DecodeAPI, OptionalParams) {
                                VPX_CODEC_USE_ERROR_CONCEALMENT));
 #endif  // CONFIG_ERROR_CONCEALMENT
 }
+
+TEST(DecodeAPI, Vp8FlushWithNoFragments) {
+  vpx_codec_ctx_t dec;
+  vpx_codec_dec_cfg_t cfg = { 1, 0, 0 };
+  vpx_codec_flags_t flags = VPX_CODEC_USE_INPUT_FRAGMENTS;
+
+  EXPECT_EQ(VPX_CODEC_OK,
+            vpx_codec_dec_init(&dec, &vpx_codec_vp8_dx_algo, &cfg, flags));
+  EXPECT_EQ(VPX_CODEC_OK, vpx_codec_decode(&dec, nullptr, 0, nullptr, 0));
+  EXPECT_EQ(VPX_CODEC_OK, vpx_codec_destroy(&dec));
+}
 #endif  // CONFIG_VP8_DECODER
 
 #if CONFIG_VP9_DECODER
