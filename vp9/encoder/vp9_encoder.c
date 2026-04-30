@@ -1400,7 +1400,7 @@ static void alloc_compressor_data(VP9_COMP *cpi) {
           "Size of cpi->tile_tok[0][0] can't be represented in size_t");
     }
     CHECK_MEM_ERROR(&cm->error, cpi->tile_tok[0][0],
-                    vpx_calloc(tokens, sizeof(*cpi->tile_tok[0][0])));
+                    vpx_calloc((size_t)tokens, sizeof(*cpi->tile_tok[0][0])));
   }
 
   sb_rows = mi_cols_aligned_to_sb(cm->mi_rows) >> MI_BLOCK_SIZE_LOG2;
