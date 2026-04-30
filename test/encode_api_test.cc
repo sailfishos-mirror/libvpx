@@ -33,6 +33,7 @@
 #include "vpx/vpx_image.h"
 
 #if CONFIG_VP9_ENCODER
+#include "vp9/encoder/vp9_encoder.h"
 #include "vp9/encoder/vp9_firstpass_stats.h"
 #endif
 
@@ -2764,21 +2765,16 @@ TEST(EncodeAPI, SvcTestInvalidInputs) {
 }
 
 TEST(EncodeAPI, LargeDimensionsTokenAllocOverflow) {
-  vpx_codec_iface_t *const iface = vpx_codec_vp9_cx();
-  vpx_codec_enc_cfg_t cfg;
-  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
-  cfg.g_w = 26625;
-  cfg.g_h = 26625;
-
-  vpx_codec_ctx_t codec;
-  // With overflow fixed, this large allocation should either succeed or fail
-  // gracefully with MEM_ERROR, instead of crashing or OOMing due to overflow.
-  vpx_codec_err_t err =
-      vpx_codec_enc_init_ver(&codec, iface, &cfg, 0, VPX_ENCODER_ABI_VERSION);
-  ASSERT_TRUE(err == VPX_CODEC_OK || err == VPX_CODEC_MEM_ERROR);
-  if (err == VPX_CODEC_OK) {
-    ASSERT_EQ(vpx_codec_destroy(&codec), VPX_CODEC_OK);
-  }
+  // To trigger the signed integer overflow, we need:
+  // aligned_mb_rows * aligned_mb_cols * 772 > INT_MAX (2147483647)
+  // aligned_mb_rows * aligned_mb_cols > 2147483647 / 772 = 2781714.5
+  // For a square-ish frame, sqrt(2781714.5) is approx 1667.8.
+  // Since aligned dimensions are multiples of 4, we round up to 1668.
+  // 1668 * 1668 * 772 = 2147876928, which is > INT_MAX.
+  // To get aligned MBs of 1668, we need input MBs in range (1664, 1668].
+  // 1665 is chosen as the smallest integer in this range.
+  int64_t tokens = get_token_alloc(1665, 1665);
+  EXPECT_EQ(tokens, (int64_t)1668 * 1668 * (16 * 16 * 3 + 4));
 }
 
 // 4 spatial layers, 1 temporal, speed 1 and 0 for spatial_layer = 0, 1,
